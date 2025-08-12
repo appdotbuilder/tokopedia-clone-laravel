@@ -1,8 +1,19 @@
+import { db } from '../db';
+import { categoriesTable } from '../db/schema';
 import { type Category } from '../schema';
+import { desc } from 'drizzle-orm';
 
-export async function getCategories(): Promise<Category[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all categories from the database.
-    // Accessible by both Admin and Customer users for filtering products.
-    return [];
-}
+export const getCategories = async (): Promise<Category[]> => {
+  try {
+    // Fetch all categories ordered by most recently created first
+    const results = await db.select()
+      .from(categoriesTable)
+      .orderBy(desc(categoriesTable.created_at))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch categories:', error);
+    throw error;
+  }
+};

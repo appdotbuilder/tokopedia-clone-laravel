@@ -1,20 +1,48 @@
+import { db } from '../db';
+import { shipmentsTable, ordersTable } from '../db/schema';
 import { type CreateShipmentInput, type Shipment } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function createShipment(input: CreateShipmentInput): Promise<Shipment> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating shipment information for an order.
-    // Should integrate with shipping APIs to calculate costs and estimated delivery.
-    // Should update order status to 'shipped'. Only accessible by Admin users.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createShipment = async (input: CreateShipmentInput): Promise<Shipment> => {
+  try {
+    // Verify the order exists before creating shipment
+    const existingOrder = await db.select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, input.order_id))
+      .execute();
+
+    if (existingOrder.length === 0) {
+      throw new Error('Order not found');
+    }
+
+    // Insert shipment record
+    const result = await db.insert(shipmentsTable)
+      .values({
         order_id: input.order_id,
         courier: input.courier,
-        tracking_number: null,
-        cost: input.cost,
-        status: 'pending',
-        estimated_delivery: input.estimated_delivery || null,
-        delivered_at: null,
-        created_at: new Date(),
+        cost: input.cost.toString(), // Convert number to string for numeric column
+        estimated_delivery: input.estimated_delivery
+      })
+      .returning()
+      .execute();
+
+    // Update order status to 'shipped' when shipment is created
+    await db.update(ordersTable)
+      .set({ 
+        status: 'shipped',
         updated_at: new Date()
-    } as Shipment);
-}
+      })
+      .where(eq(ordersTable.id, input.order_id))
+      .execute();
+
+    // Convert numeric fields back to numbers before returning
+    const shipment = result[0];
+    return {
+      ...shipment,
+      cost: parseFloat(shipment.cost) // Convert string back to number
+    };
+  } catch (error) {
+    console.error('Shipment creation failed:', error);
+    throw error;
+  }
+};

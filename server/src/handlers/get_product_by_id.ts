@@ -1,20 +1,28 @@
+import { db } from '../db';
+import { productsTable } from '../db/schema';
 import { type Product } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function getProductById(id: number): Promise<Product | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching a single product by ID from the database.
-    // Should include category information for detailed product view.
-    // Accessible by both Admin and Customer users.
-    return Promise.resolve({
-        id: id,
-        name: "Sample Product",
-        code: "PROD001",
-        description: "Sample product description",
-        price: 99.99,
-        stock: 10,
-        category_id: 1,
-        image: null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Product);
-}
+export const getProductById = async (id: number): Promise<Product | null> => {
+  try {
+    const results = await db.select()
+      .from(productsTable)
+      .where(eq(productsTable.id, id))
+      .execute();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const product = results[0];
+    
+    // Convert numeric fields back to numbers for the return type
+    return {
+      ...product,
+      price: parseFloat(product.price)
+    };
+  } catch (error) {
+    console.error('Failed to get product by ID:', error);
+    throw error;
+  }
+};
